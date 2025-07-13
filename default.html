@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digitdle</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
     <style>
         body { 
-            font-family: Arial, sans-serif; 
+            font-family: 'Open Sans', sans-serif; 
             text-align: center; 
             background-color: #f0f8ff; 
             color: #333; 
@@ -73,7 +74,7 @@
             font-family: 'Orbitron', sans-serif; 
             font-size: 48px; 
             width: 100%; 
-            margin: 0 auto 10px; /* Added padding at bottom */
+            margin: 0 auto 20px; /* Increased bottom margin for padding */
             letter-spacing: 2px; 
             text-transform: lowercase; 
         }
@@ -82,6 +83,7 @@
             margin-top: 0; 
             margin-bottom: 20px; 
             color: #666; 
+            text-transform: lowercase;
         }
         body.dark-mode #subtitle { color: #aaa; }
         #constraint { font-style: italic; color: #555; }
@@ -110,6 +112,18 @@
         }
         body.dark-mode #settingsPopup { background: #333; color: #e0e0e0; border-color: #555; }
         #hiddenInput { position: absolute; left: -9999px; }
+        #confettiCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 100; }
+        #message.win { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #ff5722; 
+            animation: pulse 1s infinite; 
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
         @media (max-width: 600px) {
             .cell { width: 40px; height: 40px; font-size: 20px; }
             #heading { font-size: 36px; }
@@ -119,7 +133,7 @@
 </head>
 <body>
     <h1 id="heading">digitdle</h1>
-    <p id="subtitle">Decode the Digital Enigma!</p>
+    <p id="subtitle">decode the digital enigma</p>
     <p id="constraint"></p>
     <div id="grid"></div>
     <p id="message"></p>
@@ -130,17 +144,16 @@
     <button id="settingsButton" onclick="toggleSettings()">⚙️</button>
     <div id="settingsPopup">
         <label>Game Mode:</label>
-        <select id="mode" onchange="changeMode(this.value)">
+        <select id="mode" onchange="changeMode(this.value); toggleSettings();">
             <option value="normal">Normal (5 digits, 6 guesses)</option>
             <option value="easy">Easy (4 digits, 7 guesses)</option>
             <option value="hard">Hard (6 digits, 5 guesses)</option>
         </select>
         <br>
-        <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
-        <br>
-        <button onclick="toggleSettings()">Close</button>
+        <button onclick="toggleDarkMode(); toggleSettings();">Toggle Dark Mode</button>
     </div>
     <input id="hiddenInput" type="number" inputmode="numeric" style="opacity: 0; position: absolute; left: -9999px;">
+    <canvas id="confettiCanvas"></canvas>
 
     <script>
         let CODE_LENGTH = 5;
@@ -398,7 +411,7 @@
             currentRow++;
             currentCol = 0;
             if (guess === secretCode) {
-                document.getElementById('message').textContent = 'You win! 🎉';
+                showWinAnimation();
                 updateStreak(true);
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
@@ -408,6 +421,60 @@
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
             }
+        }
+
+        function showWinAnimation() {
+            const message = document.getElementById('message');
+            message.textContent = 'You win! 🎉';
+            message.classList.add('win');
+            launchConfetti();
+        }
+
+        function launchConfetti() {
+            const canvas = document.getElementById('confettiCanvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            const ctx = canvas.getContext('2d');
+            const pieces = [];
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+
+            for (let i = 0; i < 100; i++) {
+                pieces.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 10 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speedX: Math.random() * 4 - 2,
+                    speedY: Math.random() * 2 + 2,
+                    rotation: Math.random() * 360,
+                    rotSpeed: Math.random() * 10 - 5
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.rotation += p.rotSpeed;
+                    if (p.y > canvas.height) p.y = -p.size;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation * Math.PI / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+                if (pieces.some(p => p.y < canvas.height)) {
+                    requestAnimationFrame(animate);
+                } else {
+                    canvas.style.display = 'none';
+                }
+            }
+
+            canvas.style.display = 'block';
+            animate();
         }
 
         function updateStreak(won) {
@@ -499,6 +566,15 @@
             const popup = document.getElementById('settingsPopup');
             popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
         }
+
+        // Close settings on click outside
+        document.addEventListener('click', function(event) {
+            const popup = document.getElementById('settingsPopup');
+            const button = document.getElementById('settingsButton');
+            if (!popup.contains(event.target) && !button.contains(event.target)) {
+                popup.style.display = 'none';
+            }
+        });
 
         // Load dark mode preference
         if (localStorage.getItem('darkMode') === 'true') {
