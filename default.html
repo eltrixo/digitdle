@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digitdle</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f8ff; color: #333; } /* Light theme */
+        #grid { display: grid; gap: 5px; margin: 20px auto; width: fit-content; }
+        .cell { width: 50px; height: 50px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 24px; background-color: white; }
+        .green { background: #6aaa64; color: white; }
+        .yellow { background: #c9b458; color: white; }
+        .gray { background: #787c7e; color: white; }
+        #message { font-size: 18px; margin: 10px; }
+        #streak { font-size: 16px; }
+        .active-row .cell { border-color: #333; } /* Highlight current row */
+        button, select { padding: 10px; margin: 5px; font-size: 16px; }
+        /* Detective theme elements */
+        h1 { color: #4a4a4a; text-shadow: 1px 1px 2px #aaa; }
+        #constraint { font-style: italic; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Digitdle - Crack the Code!</h1>
+    <select id="mode" onchange="changeMode(this.value)">
+        <option value="normal">Normal (5 digits, 6 guesses)</option>
+        <option value="easy">Easy (4 digits, 7 guesses)</option>
+        <option value="hard">Hard (6 digits, 5 guesses)</option>
+    </select>
+    <p id="constraint"></p>
+    <div id="grid"></div>
+    <p id="message"></p>
+    <p id="streak"></p>
+    <button id="shareButton" style="display: none;" onclick="shareResults()">Share Results</button>
+
+    <script>
+        let CODE_LENGTH = 5;
+        let GRID_ROWS = 6;
+        let currentMode = 'normal';
+        let currentRow = 0;
+        let currentCol = 0;
+        let secretCode = '';
+        let dailyConstraint = '';
+        let constraintType = '';
+        let streak = 0;
+        let lastPlayed = '';
+        let gameOver = false;
+        let gridCells = [];
+        const constraintTypes = ['sum', 'product', 'prime', 'palindrome', 'ascending', 'even'];
+
+        function getDailySeed() {
+            const now = new Date();
+            return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+        }
+
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function generateSecretCode(seed, length) {
+            let code = '';
+            for (let i = 0; i < length; i++) {
+                code += Math.floor(seededRandom(seed + i) * 10);
+            }
+            return code;
+        }
+
+        function isPrime(num) {
+            if (num <= 1) return false;
+            if (num <= 3) return true;
+            if (num % 2 === 0 || num % 3 === 0) return false;
+            for (let i = 5; i * i <= num; i += 6) {
+                if (num % i === 0 || num % (i + 2) === 0) return false;
+            }
+            return true;
+        }
+
+        function generateSecretForType(type, seed, length) {
+            if (type === 'sum' || type === 'product') {
+                return generateSecretCode(seed, length);
+            } else if (type === 'prime') {
+                let subSeed = seed;
+                while (true) {
+                    let code = generateSecretCode(subSeed, length);
+                    let num = parseInt(code);
+                    if (isPrime(num)) return code;
+                    subSeed++;
+                }
+            } else if (type === 'palindrome') {
+                let half = Math.ceil(length / 2);
+                let front = [];
+                for (let i = 0; i < half; i++) {
+                    front.push(Math.floor(seededRandom(seed + i) * 10));
+                }
+                let mirrored = front.slice(0, length % 2 === 1 ? half - 1 : half).reverse();
+                return front.join('') + mirrored.join('');
+            } else if (type === 'ascending') {
+                let digits = [];
+                for (let i = 0; i < length; i++) {
+                    digits.push(Math.floor(seededRandom(seed + i) * 10));
+                }
+                digits.sort((a, b) => a - b);
+                return digits.join('');
+            } else if (type === 'even') {
+                let code = '';
+                for (let i = 0; i < length; i++) {
+                    code += Math.floor(seededRandom(seed + i) * 5) * 2; // 0,2,4,6,8
+                }
+                return code;
+            }
+        }
+
+        function getConstraintHint(type, code) {
+            if (type === 'sum') {
+                const sum = code.split('').reduce((a, b) => a + parseInt(b), 0);
+                return `Digits sum to ${sum}`;
+            } else if (type === 'product') {
+                const prod = code.split('').reduce((a, b) => a * parseInt(b), 1);
+                return `Digits multiply to ${prod}`;
+            } else if (type === 'prime') {
+                return 'The number is prime';
+            } else if (type === 'palindrome') {
+                return 'The number is a palindrome';
+            } else if (type === 'ascending') {
+                return 'Digits are in non-decreasing order';
+            } else if (type === 'even') {
+                return 'All digits are even';
+            }
+        }
+
+        function checkGuess(guess, secret) {
+            let feedback = [];
+            let secretArr = secret.split('');
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (guess[i] === secretArr[i]) {
+                    feedback.push('green');
+                    secretArr[i] = null;
+                } else {
+                    feedback.push(null);
+                }
+            }
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (feedback[i]) continue;
+                let found = secretArr.indexOf(guess[i]);
+                if (found !== -1) {
+                    feedback[i] = 'yellow';
+                    secretArr[found] = null;
+                } else {
+                    feedback[i] = 'gray';
+                }
+            }
+            return feedback;
+        }
+
+        function getCell(row, col) {
+            return gridCells[row * CODE_LENGTH + col];
+        }
+
+        function clearGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            gridCells = [];
+        }
+
+        function initGame() {
+            clearGrid();
+            const baseSeed = getDailySeed();
+            const modeSeedOffset = currentMode === 'easy' ? 100 : currentMode === 'normal' ? 200 : 300;
+            const seed = baseSeed + modeSeedOffset;
+            const typeIndex = Math.floor(seededRandom(seed) * constraintTypes.length);
+            constraintType = constraintTypes[typeIndex];
+            secretCode = generateSecretForType(constraintType, seed + 1, CODE_LENGTH);
+            dailyConstraint = getConstraintHint(constraintType, secretCode);
+            document.getElementById('constraint').textContent = `Daily Constraint: ${dailyConstraint}`;
+            const grid = document.getElementById('grid');
+            grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
+            grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
+            for (let i = 0; i < GRID_ROWS * CODE_LENGTH; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                grid.appendChild(cell);
+                gridCells.push(cell);
+            }
+            currentRow = 0;
+            currentCol = 0;
+            gameOver = false;
+            document.getElementById('message').textContent = '';
+            document.getElementById('shareButton').style.display = 'none';
+            streak = parseInt(localStorage.getItem('streak_' + currentMode)) || 0;
+            lastPlayed = localStorage.getItem('lastPlayed_' + currentMode) || '';
+            updateStreakDisplay();
+            checkIfNewDay();
+            // No need for highlightCurrentRow() as it's called in handleKey if needed
+        }
+
+        function checkIfNewDay() {
+            const today = new Date().toDateString();
+            if (lastPlayed !== today) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                if (lastPlayed !== yesterday.toDateString()) {
+                    streak = 0;
+                    localStorage.setItem('streak_' + currentMode, 0);
+                }
+            }
+        }
+
+        function handleKey(e) {
+            if (gameOver) return;
+            if (e.key >= '0' && e.key <= '9') {
+                if (currentCol < CODE_LENGTH) {
+                    getCell(currentRow, currentCol).textContent = e.key;
+                    currentCol++;
+                    if (currentCol === CODE_LENGTH) {
+                        submitGuess();
+                    }
+                }
+            } else if (e.key === 'Backspace') {
+                if (currentCol > 0) {
+                    currentCol--;
+                    getCell(currentRow, currentCol).textContent = '';
+                }
+            } else if (e.key === 'Enter' && currentCol === CODE_LENGTH) {
+                submitGuess();
+            }
+        }
+
+        function submitGuess() {
+            let guess = '';
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                guess += getCell(currentRow, i).textContent;
+            }
+            if (guess.length !== CODE_LENGTH || !/^\d+$/.test(guess)) return;
+            const feedback = checkGuess(guess, secretCode);
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                getCell(currentRow, i).classList.add(feedback[i]);
+            }
+            currentRow++;
+            currentCol = 0;
+            if (guess === secretCode) {
+                document.getElementById('message').textContent = 'You win! 🎉';
+                updateStreak(true);
+                gameOver = true;
+                document.getElementById('shareButton').style.display = 'block';
+            } else if (currentRow >= GRID_ROWS) {
+                document.getElementById('message').textContent = `Game over! Secret was ${secretCode}`;
+                updateStreak(false);
+                gameOver = true;
+                document.getElementById('shareButton').style.display = 'block';
+            }
+        }
+
+        function updateStreak(won) {
+            const today = new Date().toDateString();
+            if (won) {
+                streak++;
+                localStorage.setItem('streak_' + currentMode, streak);
+            } else if (lastPlayed !== today) {
+                streak = 0;
+                localStorage.setItem('streak_' + currentMode, 0);
+            }
+            localStorage.setItem('lastPlayed_' + currentMode, today);
+            updateStreakDisplay();
+        }
+
+        function updateStreakDisplay() {
+            document.getElementById('streak').textContent = `Current Streak (${currentMode}): ${streak} days`;
+        }
+
+        function changeMode(mode) {
+            currentMode = mode;
+            if (mode === 'easy') {
+                CODE_LENGTH = 4;
+                GRID_ROWS = 7;
+            } else if (mode === 'normal') {
+                CODE_LENGTH = 5;
+                GRID_ROWS = 6;
+            } else if (mode === 'hard') {
+                CODE_LENGTH = 6;
+                GRID_ROWS = 5;
+            }
+            initGame();
+        }
+
+        function shareResults() {
+            let text = `Digitdle ${currentMode.toUpperCase()} ${new Date().toDateString()}\n`;
+            text += `Constraint: ${dailyConstraint}\n`;
+            const rowsToShare = gameOver && currentRow < GRID_ROWS ? currentRow : GRID_ROWS;
+            for (let r = 0; r < rowsToShare; r++) {
+                let row = '';
+                for (let c = 0; c < CODE_LENGTH; c++) {
+                    const cell = getCell(r, c);
+                    if (cell.classList.contains('green')) row += '🟩';
+                    else if (cell.classList.contains('yellow')) row += '🟨';
+                    else if (cell.classList.contains('gray')) row += '⬛';
+                    else row += '⬜'; // For unfilled, but since submitted, should be colored
+                }
+                text += row + '\n';
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Results copied to clipboard!');
+            });
+        }
+
+        document.addEventListener('keydown', handleKey);
+        initGame(); // Start with normal mode
+    </script>
+</body>
+</html>
