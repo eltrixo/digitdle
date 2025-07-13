@@ -252,7 +252,7 @@
         let lastPlayed = '';
         let gameOver = false;
         let gridCells = [];
-        const constraintTypes = ['sum', 'product', 'prime', 'palindrome', 'ascending', 'even', 'odd', 'unique', 'divisibleBy3', 'fibonacci'];
+        const constraintTypes = ['sum', 'product', 'prime', 'palindrome', 'ascending', 'even', 'odd', 'unique', 'divisibleBy3', 'fibonacci', 'descending', 'square', 'multipleOf5', 'containsZero', 'noRepeats', 'evenSum', 'oddProduct'];
 
         function getDailySeed() {
             const now = new Date();
@@ -341,6 +341,49 @@
                     code += fib[Math.floor(seededRandom(seed + i) * fib.length)] % 10;
                 }
                 return code;
+            } else if (type === 'descending') {
+                let digits = [];
+                for (let i = 0; i < length; i++) {
+                    digits.push(Math.floor(seededRandom(seed + i) * 10));
+                }
+                digits.sort((a, b) => b - a);
+                return digits.join('');
+            } else if (type === 'square') {
+                let subSeed = seed;
+                while (true) {
+                    let code = generateSecretCode(subSeed, length);
+                    let num = parseInt(code);
+                    if (Math.sqrt(num) % 1 === 0) return code;
+                    subSeed++;
+                }
+            } else if (type === 'multipleOf5') {
+                let code = generateSecretCode(seed, length - 1);
+                code += [0, 5][Math.floor(seededRandom(seed + length) * 2)];
+                return code;
+            } else if (type === 'containsZero') {
+                let code = generateSecretCode(seed, length);
+                if (!code.includes('0')) {
+                    code = code.slice(0, -1) + '0';
+                }
+                return code;
+            } else if (type === 'noRepeats') {
+                return generateSecretForType('unique', seed, length);
+            } else if (type === 'evenSum') {
+                let subSeed = seed;
+                while (true) {
+                    let code = generateSecretCode(subSeed, length);
+                    let sum = code.split('').reduce((a, b) => a + parseInt(b), 0);
+                    if (sum % 2 === 0) return code;
+                    subSeed++;
+                }
+            } else if (type === 'oddProduct') {
+                let subSeed = seed;
+                while (true) {
+                    let code = generateSecretCode(subSeed, length);
+                    let prod = code.split('').reduce((a, b) => a * parseInt(b), 1);
+                    if (prod % 2 === 1) return code;
+                    subSeed++;
+                }
             }
         }
 
@@ -367,6 +410,20 @@
                 return 'the number is divisible by 3';
             } else if (type === 'fibonacci') {
                 return 'digits are from fibonacci sequence (mod 10)';
+            } else if (type === 'descending') {
+                return 'digits are in non-increasing order';
+            } else if (type === 'square') {
+                return 'the number is a perfect square';
+            } else if (type === 'multipleOf5') {
+                return 'the number is a multiple of 5';
+            } else if (type === 'containsZero') {
+                return 'contains at least one zero';
+            } else if (type === 'noRepeats') {
+                return 'no repeated digits';
+            } else if (type === 'evenSum') {
+                return 'sum of digits is even';
+            } else if (type === 'oddProduct') {
+                return 'product of digits is odd';
             }
         }
 
@@ -414,8 +471,8 @@
                 secretCode = state.secretCode;
                 document.getElementById('constraint').textContent = state.constraint;
                 const grid = document.getElementById('grid');
-                grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
-                grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
+                grid.style.gridTemplateColumns = `repeat(${state.codeLength}, 50px)`;
+                grid.style.gridTemplateRows = `repeat(${state.gridRows}, 50px)`;
                 state.grid.forEach((row, r) => {
                     row.forEach((item, c) => {
                         const cell = document.createElement('div');
@@ -575,7 +632,9 @@
                 secretCode,
                 constraint: document.getElementById('constraint').textContent,
                 message: document.getElementById('message').textContent,
-                gameOver
+                gameOver,
+                codeLength: CODE_LENGTH,
+                gridRows: GRID_ROWS
             };
             localStorage.setItem(stateKey, JSON.stringify(state));
         }
@@ -645,7 +704,7 @@
             if (won) {
                 streak++;
                 localStorage.setItem('streak_' + currentMode, streak);
-            } else if (lastPlayed !== today) {
+            } else {
                 streak = 0;
                 localStorage.setItem('streak_' + currentMode, 0);
             }
