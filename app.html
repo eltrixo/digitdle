@@ -11,17 +11,15 @@
         .green { background: #6aaa64; color: white; }
         .yellow { background: #c9b458; color: white; }
         .gray { background: #787c7e; color: white; }
-        #input { font-size: 24px; width: 200px; margin: 10px; }
         #message { font-size: 18px; margin: 10px; }
         #streak { font-size: 16px; }
+        .active-row .cell { border-color: #333; } /* Optional: Highlight current row */
     </style>
 </head>
 <body>
     <h1>Digitdle</h1>
     <p id="constraint"></p>
     <div id="grid"></div>
-    <input type="text" id="input" maxlength="5" placeholder="Enter 5 digits">
-    <button onclick="submitGuess()">Guess</button>
     <p id="message"></p>
     <p id="streak"></p>
 
@@ -29,10 +27,13 @@
         const GRID_ROWS = 6;
         const CODE_LENGTH = 5;
         let currentRow = 0;
+        let currentCol = 0;
         let secretCode = '';
         let dailyConstraint = '';
         let streak = parseInt(localStorage.getItem('streak')) || 0;
         let lastPlayed = localStorage.getItem('lastPlayed') || '';
+        let gameOver = false;
+        let gridCells = [];
 
         function getDailySeed() {
             const now = new Date();
@@ -63,7 +64,7 @@
             for (let i = 0; i < CODE_LENGTH; i++) {
                 if (guess[i] === secretArr[i]) {
                     feedback.push('green');
-                    secretArr[i] = null; // Mark as used
+                    secretArr[i] = null;
                 } else {
                     feedback.push(null);
                 }
@@ -81,6 +82,10 @@
             return feedback;
         }
 
+        function getCell(row, col) {
+            return gridCells[row * CODE_LENGTH + col];
+        }
+
         function initGame() {
             const seed = getDailySeed();
             secretCode = generateSecretCode(seed);
@@ -92,15 +97,17 @@
                 const cell = document.createElement('div');
                 cell.classList.add('cell');
                 grid.appendChild(cell);
+                gridCells.push(cell);
             }
+            document.addEventListener('keydown', handleKey);
             updateStreakDisplay();
             checkIfNewDay();
+            highlightCurrentRow();
         }
 
         function checkIfNewDay() {
             const today = new Date().toDateString();
             if (lastPlayed !== today) {
-                // If not played today, streak continues if played yesterday, else reset
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 if (lastPlayed !== yesterday.toDateString()) {
@@ -110,30 +117,64 @@
             }
         }
 
+        function handleKey(e) {
+            if (gameOver) return;
+            if (e.key >= '0' && e.key <= '9') {
+                if (currentCol < CODE_LENGTH) {
+                    getCell(currentRow, currentCol).textContent = e.key;
+                    currentCol++;
+                    if (currentCol === CODE_LENGTH) {
+                        submitGuess();
+                    }
+                }
+            } else if (e.key === 'Backspace') {
+                if (currentCol > 0) {
+                    currentCol--;
+                    getCell(currentRow, currentCol).textContent = '';
+                }
+            } else if (e.key === 'Enter' && currentCol === CODE_LENGTH) {
+                submitGuess();
+            }
+        }
+
         function submitGuess() {
-            const input = document.getElementById('input');
-            const guess = input.value.trim();
+            let guess = '';
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                guess += getCell(currentRow, i).textContent;
+            }
             if (guess.length !== CODE_LENGTH || !/^\d{5}$/.test(guess)) {
-                alert('Enter exactly 5 digits!');
+                // This shouldn't happen since we control input, but just in case
                 return;
             }
             const feedback = checkGuess(guess, secretCode);
-            const grid = document.getElementById('grid').children;
             for (let i = 0; i < CODE_LENGTH; i++) {
-                const cellIndex = currentRow * CODE_LENGTH + i;
-                grid[cellIndex].textContent = guess[i];
-                grid[cellIndex].classList.add(feedback[i]);
+                getCell(currentRow, i).classList.add(feedback[i]);
             }
             currentRow++;
-            input.value = '';
+            currentCol = 0;
             if (guess === secretCode) {
                 document.getElementById('message').textContent = 'You win! 🎉';
                 updateStreak(true);
-                input.disabled = true;
+                gameOver = true;
             } else if (currentRow >= GRID_ROWS) {
                 document.getElementById('message').textContent = `Game over! Secret was ${secretCode}`;
                 updateStreak(false);
-                input.disabled = true;
+                gameOver = true;
+            }
+            if (!gameOver) {
+                highlightCurrentRow();
+            }
+        }
+
+        function highlightCurrentRow() {
+            // Optional: Remove highlight from all, add to current
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < CODE_LENGTH; c++) {
+                    getCell(r, c).classList.remove('active');
+                }
+            }
+            for (let c = 0; c < CODE_LENGTH; c++) {
+                getCell(currentRow, c).classList.add('active');
             }
         }
 
