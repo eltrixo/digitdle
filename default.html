@@ -247,7 +247,7 @@
         const constraintTypes = ['sum', 'product', 'prime', 'palindrome', 'ascending', 'even', 'odd', 'unique', 'divisibleBy3', 'fibonacci'];
 
         function getDailySeed() {
-            const now = new Date(2025, 6, 13); // July 13, 2025
+            const now = new Date();
             return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
         }
 
@@ -398,6 +398,13 @@
 
         function initGame() {
             clearGrid();
+            const today = new Date().toDateString();
+            const completedKey = `completed_${currentMode}_${today}`;
+            if (localStorage.getItem(completedKey) === 'true') {
+                document.getElementById('message').textContent = 'Puzzle completed for today in this mode! Try another mode.';
+                document.getElementById('grid').innerHTML = '';
+                return;
+            }
             const baseSeed = getDailySeed();
             const modeSeedOffset = currentMode === 'easy' ? 100 : currentMode === 'normal' ? 200 : 300;
             const seed = baseSeed + modeSeedOffset;
@@ -492,15 +499,23 @@
             currentCol = 0;
             if (guess === secretCode) {
                 showWinAnimation();
+                markCompleted();
                 updateStreak(true);
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
             } else if (currentRow >= GRID_ROWS) {
                 showLoseAnimation(`Game over! Secret was ${secretCode}`);
+                markCompleted();
                 updateStreak(false);
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
             }
+        }
+
+        function markCompleted() {
+            const today = new Date().toDateString();
+            const completedKey = `completed_${currentMode}_${today}`;
+            localStorage.setItem(completedKey, 'true');
         }
 
         function showWinAnimation() {
