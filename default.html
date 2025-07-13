@@ -59,23 +59,28 @@
         body.dark .cell {
             background-color: #333;
             border-color: #555;
+            color: #e0e0e0;
         }
         body.clown .cell {
             background-color: #fff;
             border-color: #2196f3;
+            color: #d32f2f;
         }
         body.retro .cell {
             background-color: #000;
             border-color: #0f0;
+            color: #0f0;
             font-family: 'Courier New', monospace;
         }
         body.light .cell {
             background-color: #fff;
             border-color: #ddd;
+            color: #000;
         }
         body.default .cell {
             background-color: white;
             border-color: #ccc;
+            color: #333;
         }
         .cell.flip {
             animation: flip 0.6s ease-in-out;
@@ -99,10 +104,18 @@
             display: inline-block; 
             transition: background-color 0.3s;
         }
-        body.dark #streak { background-color: #263238; }
+        body.dark #streak { background-color: #263238; color: #e0e0e0; }
+        body.clown #streak { background-color: #fff; color: #d32f2f; }
+        body.retro #streak { background-color: #000; color: #0f0; }
+        body.light #streak { background-color: #f5f5f5; color: #000; }
+        body.default #streak { background-color: #e0f7fa; color: #333; }
         #streak.hot { color: #ff5722; } /* For hot streaks */
         button, select { padding: 10px; margin: 5px; font-size: 16px; cursor: pointer; border: none; background: #eee; border-radius: 5px; }
         body.dark button, body.dark select { background: #444; color: #e0e0e0; }
+        body.clown button, body.clown select { background: #fff; color: #d32f2f; }
+        body.retro button, body.retro select { background: #000; color: #0f0; border: 1px solid #0f0; }
+        body.light button, body.light select { background: #f5f5f5; color: #000; }
+        body.default button, body.default select { background: #eee; color: #333; }
         /* Heading style */
         #heading { 
             font-family: 'Orbitron', sans-serif; 
@@ -120,8 +133,16 @@
             text-transform: lowercase;
         }
         body.dark #subtitle { color: #aaa; }
-        #constraint { font-style: italic; color: #555; }
+        body.clown #subtitle { color: #d32f2f; }
+        body.retro #subtitle { color: #0f0; }
+        body.light #subtitle { color: #666; }
+        body.default #subtitle { color: #666; }
+        #constraint { font-style: italic; color: #555; text-transform: lowercase; }
         body.dark #constraint { color: #aaa; }
+        body.clown #constraint { color: #d32f2f; }
+        body.retro #constraint { color: #0f0; }
+        body.light #constraint { color: #555; }
+        body.default #constraint { color: #555; }
         #shareContainer { margin: 20px; }
         #shareButton { background: #4CAF50; color: white; border: none; }
         #settingsButton { 
@@ -145,6 +166,10 @@
             z-index: 1000; 
         }
         body.dark #settingsPopup { background: #333; color: #e0e0e0; border-color: #555; }
+        body.clown #settingsPopup { background: #fff; color: #d32f2f; border-color: #2196f3; }
+        body.retro #settingsPopup { background: #000; color: #0f0; border-color: #0f0; }
+        body.light #settingsPopup { background: #fff; color: #000; border-color: #ddd; }
+        body.default #settingsPopup { background: white; color: #333; border-color: #ccc; }
         #hiddenInput { position: absolute; left: -9999px; }
         #confettiCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 100; }
         #message.win { 
@@ -153,10 +178,24 @@
             color: #ff5722; 
             animation: pulse 1s infinite; 
         }
+        #message.lose { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #f44336; 
+            animation: shake 0.5s; 
+        }
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+            100% { transform: translateX(0); }
         }
         @media (max-width: 600px) {
             .cell { width: 40px; height: 40px; font-size: 20px; }
@@ -177,21 +216,16 @@
     </div>
     <button id="settingsButton" onclick="toggleSettings()">⚙️</button>
     <div id="settingsPopup">
-        <label>Game Mode:</label>
-        <select id="mode" onchange="changeMode(this.value); toggleSettings();">
-            <option value="easy">Easy (4 digits, 7 guesses)</option>
-            <option value="normal">Normal (5 digits, 6 guesses)</option>
-            <option value="hard">Hard (6 digits, 5 guesses)</option>
-        </select>
-        <br>
-        <label>Theme:</label>
-        <select id="theme" onchange="changeTheme(this.value); toggleSettings();">
-            <option value="light">Light</option>
-            <option value="default">Default</option>
-            <option value="dark">Dark</option>
-            <option value="clown">Clown</option>
-            <option value="retro">Retro</option>
-        </select>
+        <div style="margin-bottom: 10px;">Game Mode:</div>
+        <button onclick="changeMode('easy'); toggleSettings();">Easy</button>
+        <button onclick="changeMode('normal'); toggleSettings();">Normal</button>
+        <button onclick="changeMode('hard'); toggleSettings();">Hard</button>
+        <div style="margin: 10px 0;">Theme:</div>
+        <button onclick="changeTheme('light'); toggleSettings();">Light</button>
+        <button onclick="changeTheme('default'); toggleSettings();">Default</button>
+        <button onclick="changeTheme('dark'); toggleSettings();">Dark</button>
+        <button onclick="changeTheme('clown'); toggleSettings();">Clown</button>
+        <button onclick="changeTheme('retro'); toggleSettings();">Retro</button>
     </div>
     <input id="hiddenInput" type="number" inputmode="numeric" style="opacity: 0; position: absolute; left: -9999px;">
     <canvas id="confettiCanvas"></canvas>
@@ -305,26 +339,26 @@
         function getConstraintHint(type, code) {
             if (type === 'sum') {
                 const sum = code.split('').reduce((a, b) => a + parseInt(b), 0);
-                return `Digits sum to ${sum}`;
+                return `digits sum to ${sum}`;
             } else if (type === 'product') {
                 const prod = code.split('').reduce((a, b) => a * parseInt(b), 1);
-                return `Digits multiply to ${prod}`;
+                return `digits multiply to ${prod}`;
             } else if (type === 'prime') {
-                return 'The number is prime';
+                return 'the number is prime';
             } else if (type === 'palindrome') {
-                return 'The number is a palindrome';
+                return 'the number is a palindrome';
             } else if (type === 'ascending') {
-                return 'Digits are in non-decreasing order';
+                return 'digits are in non-decreasing order';
             } else if (type === 'even') {
-                return 'All digits are even';
+                return 'all digits are even';
             } else if (type === 'odd') {
-                return 'All digits are odd';
+                return 'all digits are odd';
             } else if (type === 'unique') {
-                return 'All digits are unique';
+                return 'all digits are unique';
             } else if (type === 'divisibleBy3') {
-                return 'The number is divisible by 3';
+                return 'the number is divisible by 3';
             } else if (type === 'fibonacci') {
-                return 'Digits are from Fibonacci sequence (mod 10)';
+                return 'digits are from fibonacci sequence (mod 10)';
             }
         }
 
@@ -393,6 +427,8 @@
             currentCol = 0;
             gameOver = false;
             document.getElementById('message').textContent = '';
+            document.getElementById('message').classList.remove('win', 'lose');
+            document.getElementById('confettiCanvas').style.display = 'none';
             document.getElementById('shareContainer').style.display = 'none';
             streak = parseInt(localStorage.getItem('streak_' + currentMode)) || 0;
             lastPlayed = localStorage.getItem('lastPlayed_' + currentMode) || '';
@@ -404,8 +440,6 @@
             }
             // Apply theme
             changeTheme(currentTheme);
-            // Set mode selector to current
-            document.getElementById('mode').value = currentMode;
         }
 
         function checkIfNewDay() {
@@ -462,7 +496,7 @@
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
             } else if (currentRow >= GRID_ROWS) {
-                document.getElementById('message').textContent = `Game over! Secret was ${secretCode}`;
+                showLoseAnimation(`Game over! Secret was ${secretCode}`);
                 updateStreak(false);
                 gameOver = true;
                 document.getElementById('shareContainer').style.display = 'block';
@@ -474,6 +508,12 @@
             message.textContent = 'You win! 🎉';
             message.classList.add('win');
             launchConfetti();
+        }
+
+        function showLoseAnimation(text) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.classList.add('lose');
         }
 
         function launchConfetti() {
@@ -582,36 +622,6 @@
             // Adjust other elements if needed
         }
 
-        function shareResults() {
-            let text = `Digitdle ${currentMode.toUpperCase()} - ${new Date().toDateString()}\n`;
-            text += `Constraint: ${dailyConstraint}\n\n`;
-            const rowsToShare = gameOver && currentRow < GRID_ROWS ? currentRow : GRID_ROWS;
-            for (let r = 0; r < rowsToShare; r++) {
-                let row = '';
-                for (let c = 0; c < CODE_LENGTH; c++) {
-                    const cell = getCell(r, c);
-                    if (cell.classList.contains('green')) row += '🟩';
-                    else if (cell.classList.contains('yellow')) row += '🟨';
-                    else if (cell.classList.contains('gray')) row += '⬛';
-                    else row += '⬜';
-                }
-                text += row + '\n';
-            }
-            text += `\nPlay Digitdle: [link to your site] #Digitdle`;
-            if (navigator.share) {
-                navigator.share({
-                    title: 'My Digitdle Results',
-                    text: text,
-                    url: window.location.href
-                }).then(() => console.log('Shared successfully'))
-                  .catch((error) => console.error('Error sharing', error));
-            } else {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('Results copied to clipboard! Paste into your social media post.');
-                });
-            }
-        }
-
         function toggleSettings() {
             const popup = document.getElementById('settingsPopup');
             popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
@@ -632,8 +642,6 @@
         }
         document.addEventListener('keydown', handleKey);
         initGame(); // Start with normal mode
-        // Set theme selector to current
-        document.getElementById('theme').value = currentTheme;
     </script>
 </body>
 </html>
