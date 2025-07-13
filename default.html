@@ -701,13 +701,22 @@
 
         function updateStreak(won) {
             const today = new Date().toDateString();
-            if (won) {
+            if (lastPlayed !== today) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                if (lastPlayed !== yesterday.toDateString()) {
+                    streak = 0;
+                } else if (!won) {
+                    streak = 0;
+                } else {
+                    streak++;
+                }
+            } else if (won) {
                 streak++;
-                localStorage.setItem('streak_' + currentMode, streak);
             } else {
                 streak = 0;
-                localStorage.setItem('streak_' + currentMode, 0);
             }
+            localStorage.setItem('streak_' + currentMode, streak);
             localStorage.setItem('lastPlayed_' + currentMode, today);
             updateStreakDisplay();
         }
