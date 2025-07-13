@@ -5,22 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digitdle</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f8ff; color: #333; } /* Light theme */
-        #grid { display: grid; gap: 5px; margin: 20px auto; width: fit-content; }
-        .cell { width: 50px; height: 50px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 24px; background-color: white; }
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background-color: #f0f8ff; 
+            color: #333; 
+            margin: 0; 
+            padding: 20px; 
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        #grid { 
+            display: grid; 
+            gap: 5px; 
+            margin: 20px auto; 
+            width: fit-content; 
+        }
+        .cell { 
+            width: 50px; 
+            height: 50px; 
+            border: 2px solid #ccc; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 24px; 
+            background-color: white; 
+            transition: transform 0.5s, background-color 0.5s, color 0.5s;
+            transform-style: preserve-3d;
+        }
+        body.dark-mode .cell {
+            background-color: #333;
+            border-color: #555;
+        }
+        .cell.flip {
+            animation: flip 0.6s ease-in-out;
+        }
+        @keyframes flip {
+            0% { transform: rotateY(0); }
+            50% { transform: rotateY(90deg); }
+            100% { transform: rotateY(0); }
+        }
         .green { background: #6aaa64; color: white; }
         .yellow { background: #c9b458; color: white; }
         .gray { background: #787c7e; color: white; }
         #message { font-size: 18px; margin: 10px; }
         #streak { font-size: 16px; }
-        .active-row .cell { border-color: #333; } /* Highlight current row */
-        button, select { padding: 10px; margin: 5px; font-size: 16px; }
-        /* Detective theme elements */
+        button, select { padding: 10px; margin: 5px; font-size: 16px; cursor: pointer; }
+        /* Detective theme */
         h1 { color: #4a4a4a; text-shadow: 1px 1px 2px #aaa; }
+        body.dark-mode h1 { color: #bbb; text-shadow: 1px 1px 2px #000; }
         #constraint { font-style: italic; color: #555; }
+        body.dark-mode #constraint { color: #aaa; }
+        #keyboard { 
+            display: grid; 
+            grid-template-columns: repeat(10, 40px); 
+            gap: 5px; 
+            margin: 20px auto; 
+            width: fit-content; 
+        }
+        .key { 
+            width: 40px; 
+            height: 50px; 
+            background: #ddd; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            border-radius: 5px; 
+        }
+        body.dark-mode .key { background: #444; color: #fff; }
+        #shareContainer { margin: 20px; }
+        #shareButton { background: #4CAF50; color: white; border: none; }
+        #toggleDark { position: absolute; top: 10px; right: 10px; }
+        @media (max-width: 600px) {
+            .cell { width: 40px; height: 40px; font-size: 20px; }
+            #keyboard { grid-template-columns: repeat(10, 30px); }
+            .key { width: 30px; height: 40px; }
+        }
     </style>
 </head>
 <body>
+    <button id="toggleDark" onclick="toggleDarkMode()">🌙 Dark Mode</button>
     <h1>Digitdle - Crack the Code!</h1>
     <select id="mode" onchange="changeMode(this.value)">
         <option value="normal">Normal (5 digits, 6 guesses)</option>
@@ -29,9 +97,12 @@
     </select>
     <p id="constraint"></p>
     <div id="grid"></div>
+    <div id="keyboard"></div>
     <p id="message"></p>
     <p id="streak"></p>
-    <button id="shareButton" style="display: none;" onclick="shareResults()">Share Results</button>
+    <div id="shareContainer" style="display: none;">
+        <button id="shareButton" onclick="shareResults()">Share Results</button>
+    </div>
 
     <script>
         let CODE_LENGTH = 5;
@@ -49,7 +120,7 @@
         const constraintTypes = ['sum', 'product', 'prime', 'palindrome', 'ascending', 'even'];
 
         function getDailySeed() {
-            const now = new Date();
+            const now = new Date(2025, 6, 13); // Fixed to July 13, 2025 (month is 0-indexed: 6=July)
             return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
         }
 
@@ -186,12 +257,12 @@
             currentCol = 0;
             gameOver = false;
             document.getElementById('message').textContent = '';
-            document.getElementById('shareButton').style.display = 'none';
+            document.getElementById('shareContainer').style.display = 'none';
             streak = parseInt(localStorage.getItem('streak_' + currentMode)) || 0;
             lastPlayed = localStorage.getItem('lastPlayed_' + currentMode) || '';
             updateStreakDisplay();
             checkIfNewDay();
-            // No need for highlightCurrentRow() as it's called in handleKey if needed
+            initKeyboard();
         }
 
         function checkIfNewDay() {
@@ -206,22 +277,23 @@
             }
         }
 
-        function handleKey(e) {
+        function handleKey(e, isVirtual = false) {
             if (gameOver) return;
-            if (e.key >= '0' && e.key <= '9') {
+            let key = isVirtual ? e : e.key;
+            if (key >= '0' && key <= '9') {
                 if (currentCol < CODE_LENGTH) {
-                    getCell(currentRow, currentCol).textContent = e.key;
+                    getCell(currentRow, currentCol).textContent = key;
                     currentCol++;
                     if (currentCol === CODE_LENGTH) {
                         submitGuess();
                     }
                 }
-            } else if (e.key === 'Backspace') {
+            } else if (key === 'Backspace') {
                 if (currentCol > 0) {
                     currentCol--;
                     getCell(currentRow, currentCol).textContent = '';
                 }
-            } else if (e.key === 'Enter' && currentCol === CODE_LENGTH) {
+            } else if (key === 'Enter' && currentCol === CODE_LENGTH) {
                 submitGuess();
             }
         }
@@ -234,7 +306,11 @@
             if (guess.length !== CODE_LENGTH || !/^\d+$/.test(guess)) return;
             const feedback = checkGuess(guess, secretCode);
             for (let i = 0; i < CODE_LENGTH; i++) {
-                getCell(currentRow, i).classList.add(feedback[i]);
+                const cell = getCell(currentRow, i);
+                cell.classList.add('flip');
+                setTimeout(() => {
+                    cell.classList.add(feedback[i]);
+                }, 300); // Delay for flip animation
             }
             currentRow++;
             currentCol = 0;
@@ -242,12 +318,12 @@
                 document.getElementById('message').textContent = 'You win! 🎉';
                 updateStreak(true);
                 gameOver = true;
-                document.getElementById('shareButton').style.display = 'block';
+                document.getElementById('shareContainer').style.display = 'block';
             } else if (currentRow >= GRID_ROWS) {
                 document.getElementById('message').textContent = `Game over! Secret was ${secretCode}`;
                 updateStreak(false);
                 gameOver = true;
-                document.getElementById('shareButton').style.display = 'block';
+                document.getElementById('shareContainer').style.display = 'block';
             }
         }
 
@@ -283,9 +359,32 @@
             initGame();
         }
 
+        function initKeyboard() {
+            const keyboard = document.getElementById('keyboard');
+            keyboard.innerHTML = '';
+            for (let i = 0; i <= 9; i++) {
+                const key = document.createElement('div');
+                key.classList.add('key');
+                key.textContent = i;
+                key.onclick = () => handleKey(i, true);
+                keyboard.appendChild(key);
+            }
+            // Add Backspace and Enter
+            const back = document.createElement('div');
+            back.classList.add('key');
+            back.textContent = '←';
+            back.onclick = () => handleKey('Backspace', true);
+            keyboard.appendChild(back);
+            const enter = document.createElement('div');
+            enter.classList.add('key');
+            enter.textContent = '↵';
+            enter.onclick = () => handleKey('Enter', true);
+            keyboard.appendChild(enter);
+        }
+
         function shareResults() {
-            let text = `Digitdle ${currentMode.toUpperCase()} ${new Date().toDateString()}\n`;
-            text += `Constraint: ${dailyConstraint}\n`;
+            let text = `Digitdle ${currentMode.toUpperCase()} - ${new Date().toDateString()}\n`;
+            text += `Constraint: ${dailyConstraint}\n\n`;
             const rowsToShare = gameOver && currentRow < GRID_ROWS ? currentRow : GRID_ROWS;
             for (let r = 0; r < rowsToShare; r++) {
                 let row = '';
@@ -294,13 +393,33 @@
                     if (cell.classList.contains('green')) row += '🟩';
                     else if (cell.classList.contains('yellow')) row += '🟨';
                     else if (cell.classList.contains('gray')) row += '⬛';
-                    else row += '⬜'; // For unfilled, but since submitted, should be colored
+                    else row += '⬜';
                 }
                 text += row + '\n';
             }
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Results copied to clipboard!');
-            });
+            text += `\nPlay Digitdle: [link to your site] #Digitdle`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'My Digitdle Results',
+                    text: text,
+                    url: window.location.href
+                }).then(() => console.log('Shared successfully'))
+                  .catch((error) => console.error('Error sharing', error));
+            } else {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Results copied to clipboard! Paste into your social media post.');
+                });
+            }
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        }
+
+        // Load dark mode preference
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
         }
 
         document.addEventListener('keydown', handleKey);
