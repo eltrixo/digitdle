@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digitdle</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #grid { display: grid; grid-template-columns: repeat(5, 50px); gap: 5px; margin: 20px auto; width: fit-content; }
+        .cell { width: 50px; height: 50px; border: 2px solid #ccc; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .green { background: #6aaa64; color: white; }
+        .yellow { background: #c9b458; color: white; }
+        .gray { background: #787c7e; color: white; }
+        #input { font-size: 24px; width: 200px; margin: 10px; }
+        #message { font-size: 18px; margin: 10px; }
+        #streak { font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Digitdle</h1>
+    <p id="constraint"></p>
+    <div id="grid"></div>
+    <input type="text" id="input" maxlength="5" placeholder="Enter 5 digits">
+    <button onclick="submitGuess()">Guess</button>
+    <p id="message"></p>
+    <p id="streak"></p>
+
+    <script>
+        const GRID_ROWS = 6;
+        const CODE_LENGTH = 5;
+        let currentRow = 0;
+        let secretCode = '';
+        let dailyConstraint = '';
+        let streak = parseInt(localStorage.getItem('streak')) || 0;
+        let lastPlayed = localStorage.getItem('lastPlayed') || '';
+
+        function getDailySeed() {
+            const now = new Date();
+            return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+        }
+
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function generateSecretCode(seed) {
+            let code = '';
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                code += Math.floor(seededRandom(seed + i) * 10);
+            }
+            return code;
+        }
+
+        function getSumConstraint(code) {
+            const sum = code.split('').reduce((a, b) => a + parseInt(b), 0);
+            return `Digits sum to ${sum}`;
+        }
+
+        function checkGuess(guess, secret) {
+            let feedback = [];
+            let secretArr = secret.split('');
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (guess[i] === secretArr[i]) {
+                    feedback.push('green');
+                    secretArr[i] = null; // Mark as used
+                } else {
+                    feedback.push(null);
+                }
+            }
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                if (feedback[i]) continue;
+                let found = secretArr.indexOf(guess[i]);
+                if (found !== -1) {
+                    feedback[i] = 'yellow';
+                    secretArr[found] = null;
+                } else {
+                    feedback[i] = 'gray';
+                }
+            }
+            return feedback;
+        }
+
+        function initGame() {
+            const seed = getDailySeed();
+            secretCode = generateSecretCode(seed);
+            dailyConstraint = getSumConstraint(secretCode);
+            document.getElementById('constraint').textContent = `Daily Constraint: ${dailyConstraint}`;
+            const grid = document.getElementById('grid');
+            grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
+            for (let i = 0; i < GRID_ROWS * CODE_LENGTH; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                grid.appendChild(cell);
+            }
+            updateStreakDisplay();
+            checkIfNewDay();
+        }
+
+        function checkIfNewDay() {
+            const today = new Date().toDateString();
+            if (lastPlayed !== today) {
+                // If not played today, streak continues if played yesterday, else reset
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                if (lastPlayed !== yesterday.toDateString()) {
+                    streak = 0;
+                    localStorage.setItem('streak', 0);
+                }
+            }
+        }
+
+        function submitGuess() {
+            const input = document.getElementById('input');
+            const guess = input.value.trim();
+            if (guess.length !== CODE_LENGTH || !/^\d{5}$/.test(guess)) {
+                alert('Enter exactly 5 digits!');
+                return;
+            }
+            const feedback = checkGuess(guess, secretCode);
+            const grid = document.getElementById('grid').children;
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                const cellIndex = currentRow * CODE_LENGTH + i;
+                grid[cellIndex].textContent = guess[i];
+                grid[cellIndex].classList.add(feedback[i]);
+            }
+            currentRow++;
+            input.value = '';
+            if (guess === secretCode) {
+                document.getElementById('message').textContent = 'You win! 🎉';
+                updateStreak(true);
+                input.disabled = true;
+            } else if (currentRow >= GRID_ROWS) {
+                document.getElementById('message').textContent = `Game over! Secret was ${secretCode}`;
+                updateStreak(false);
+                input.disabled = true;
+            }
+        }
+
+        function updateStreak(won) {
+            const today = new Date().toDateString();
+            if (won) {
+                streak++;
+                localStorage.setItem('streak', streak);
+            } else if (lastPlayed !== today) {
+                streak = 0;
+                localStorage.setItem('streak', 0);
+            }
+            localStorage.setItem('lastPlayed', today);
+            updateStreakDisplay();
+        }
+
+        function updateStreakDisplay() {
+            document.getElementById('streak').textContent = `Current Streak: ${streak} days`;
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
