@@ -202,6 +202,14 @@
             #heading { font-size: 36px; }
             #subtitle { font-size: 16px; }
         }
+        .selected {
+            background: #ccc !important;
+            color: #fff !important;
+        }
+        body.dark .selected {
+            background: #555 !important;
+            color: #e0e0e0 !important;
+        }
     </style>
 </head>
 <body>
@@ -217,15 +225,15 @@
     <button id="settingsButton" onclick="toggleSettings()">⚙️</button>
     <div id="settingsPopup">
         <div style="margin-bottom: 10px;">Game Mode:</div>
-        <button onclick="changeMode('easy'); toggleSettings();">Easy</button>
-        <button onclick="changeMode('normal'); toggleSettings();">Normal</button>
-        <button onclick="changeMode('hard'); toggleSettings();">Hard</button>
+        <button id="easyButton" onclick="changeMode('easy'); toggleSettings();">Easy</button>
+        <button id="normalButton" onclick="changeMode('normal'); toggleSettings();">Normal</button>
+        <button id="hardButton" onclick="changeMode('hard'); toggleSettings();">Hard</button>
         <div style="margin: 10px 0;">Theme:</div>
-        <button onclick="changeTheme('light'); toggleSettings();">Light</button>
-        <button onclick="changeTheme('default'); toggleSettings();">Default</button>
-        <button onclick="changeTheme('dark'); toggleSettings();">Dark</button>
-        <button onclick="changeTheme('clown'); toggleSettings();">Clown</button>
-        <button onclick="changeTheme('retro'); toggleSettings();">Retro</button>
+        <button id="lightButton" onclick="changeTheme('light'); toggleSettings();">Light</button>
+        <button id="defaultButton" onclick="changeTheme('default'); toggleSettings();">Default</button>
+        <button id="darkButton" onclick="changeTheme('dark'); toggleSettings();">Dark</button>
+        <button id="clownButton" onclick="changeTheme('clown'); toggleSettings();">Clown</button>
+        <button id="retroButton" onclick="changeTheme('retro'); toggleSettings();">Retro</button>
     </div>
     <input id="hiddenInput" type="number" inputmode="numeric" style="opacity: 0; position: absolute; left: -9999px;">
     <canvas id="confettiCanvas"></canvas>
@@ -412,7 +420,7 @@
             constraintType = constraintTypes[typeIndex];
             secretCode = generateSecretForType(constraintType, seed + 1, CODE_LENGTH);
             dailyConstraint = getConstraintHint(constraintType, secretCode);
-            document.getElementById('constraint').textContent = `Daily Constraint: ${dailyConstraint}`;
+            document.getElementById('constraint').textContent = `Daily constraint: ${dailyConstraint}`;
             const grid = document.getElementById('grid');
             grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
             grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
@@ -605,7 +613,7 @@
             const streakElem = document.getElementById('streak');
             const dayText = streak === 1 ? 'day' : 'days';
             const emojis = getStreakEmojis(streak);
-            streakElem.textContent = `Current Streak (${currentMode}): ${streak} ${dayText} ${emojis}`;
+            streakElem.textContent = `Current streak (${currentMode}): ${streak} ${dayText} ${emojis}`;
             if (streak >= 3) {
                 streakElem.classList.add('hot');
             } else {
@@ -639,7 +647,15 @@
 
         function toggleSettings() {
             const popup = document.getElementById('settingsPopup');
-            popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+            if (popup.style.display === 'block') {
+                popup.style.display = 'none';
+            } else {
+                popup.style.display = 'block';
+                // Highlight current selections
+                document.querySelectorAll('#settingsPopup button').forEach(btn => btn.classList.remove('selected'));
+                document.getElementById(`${currentMode}Button`).classList.add('selected');
+                document.getElementById(`${currentTheme}Button`).classList.add('selected');
+            }
         }
 
         // Close settings on click outside
