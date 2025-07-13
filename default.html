@@ -407,44 +407,74 @@
         function initGame() {
             clearGrid();
             const today = new Date().toDateString();
-            const completedKey = `completed_${currentMode}_${today}`;
-            if (localStorage.getItem(completedKey) === 'true') {
-                document.getElementById('message').textContent = 'Puzzle completed for today in this mode! Try another mode.';
-                document.getElementById('grid').innerHTML = '';
-                return;
+            const stateKey = `state_${currentMode}_${today}`;
+            const savedState = localStorage.getItem(stateKey);
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                secretCode = state.secretCode;
+                document.getElementById('constraint').textContent = state.constraint;
+                const grid = document.getElementById('grid');
+                grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
+                grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
+                state.grid.forEach((row, r) => {
+                    row.forEach((item, c) => {
+                        const cell = document.createElement('div');
+                        cell.classList.add('cell');
+                        cell.textContent = item.text;
+                        if (item.color) cell.classList.add(item.color);
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        cell.onclick = function() {
+                            if (parseInt(this.dataset.row) === currentRow && !gameOver) {
+                                currentCol = parseInt(this.dataset.col);
+                                document.getElementById('hiddenInput').focus();
+                            }
+                        };
+                        grid.appendChild(cell);
+                        gridCells.push(cell);
+                    });
+                });
+                currentRow = state.currentRow;
+                currentCol = state.currentCol;
+                gameOver = state.gameOver;
+                document.getElementById('message').textContent = state.message;
+                if (state.message.includes('win')) document.getElementById('message').classList.add('win');
+                if (state.message.includes('over')) document.getElementById('message').classList.add('lose');
+                if (gameOver) document.getElementById('shareContainer').style.display = 'block';
+            } else {
+                const baseSeed = getDailySeed();
+                const modeSeedOffset = currentMode === 'easy' ? 100 : currentMode === 'normal' ? 200 : 300;
+                const seed = baseSeed + modeSeedOffset;
+                const typeIndex = Math.floor(seededRandom(seed) * constraintTypes.length);
+                constraintType = constraintTypes[typeIndex];
+                secretCode = generateSecretForType(constraintType, seed + 1, CODE_LENGTH);
+                dailyConstraint = getConstraintHint(constraintType, secretCode);
+                document.getElementById('constraint').textContent = `Daily constraint: ${dailyConstraint}`;
+                const grid = document.getElementById('grid');
+                grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
+                grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
+                for (let i = 0; i < GRID_ROWS * CODE_LENGTH; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = Math.floor(i / CODE_LENGTH);
+                    cell.dataset.col = i % CODE_LENGTH;
+                    cell.onclick = function() {
+                        if (parseInt(this.dataset.row) === currentRow && !gameOver) {
+                            currentCol = parseInt(this.dataset.col);
+                            document.getElementById('hiddenInput').focus();
+                        }
+                    };
+                    grid.appendChild(cell);
+                    gridCells.push(cell);
+                }
+                currentRow = 0;
+                currentCol = 0;
+                gameOver = false;
+                document.getElementById('message').textContent = '';
+                document.getElementById('message').classList.remove('win', 'lose');
+                document.getElementById('confettiCanvas').style.display = 'none';
+                document.getElementById('shareContainer').style.display = 'none';
             }
-            const baseSeed = getDailySeed();
-            const modeSeedOffset = currentMode === 'easy' ? 100 : currentMode === 'normal' ? 200 : 300;
-            const seed = baseSeed + modeSeedOffset;
-            const typeIndex = Math.floor(seededRandom(seed) * constraintTypes.length);
-            constraintType = constraintTypes[typeIndex];
-            secretCode = generateSecretForType(constraintType, seed + 1, CODE_LENGTH);
-            dailyConstraint = getConstraintHint(constraintType, secretCode);
-            document.getElementById('constraint').textContent = `Daily constraint: ${dailyConstraint}`;
-            const grid = document.getElementById('grid');
-            grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
-            grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
-            for (let i = 0; i < GRID_ROWS * CODE_LENGTH; i++) {
-                const cell = document.createElement('div');
-                cell.classList.add('cell');
-                cell.dataset.row = Math.floor(i / CODE_LENGTH);
-                cell.dataset.col = i % CODE_LENGTH;
-                cell.onclick = function() {
-                    if (parseInt(this.dataset.row) === currentRow && !gameOver) {
-                        currentCol = parseInt(this.dataset.col);
-                        document.getElementById('hiddenInput').focus();
-                    }
-                };
-                grid.appendChild(cell);
-                gridCells.push(cell);
-            }
-            currentRow = 0;
-            currentCol = 0;
-            gameOver = false;
-            document.getElementById('message').textContent = '';
-            document.getElementById('message').classList.remove('win', 'lose');
-            document.getElementById('confettiCanvas').style.display = 'none';
-            document.getElementById('shareContainer').style.display = 'none';
             streak = parseInt(localStorage.getItem('streak_' + currentMode)) || 0;
             lastPlayed = localStorage.getItem('lastPlayed_' + currentMode) || '';
             updateStreakDisplay();
@@ -505,25 +535,49 @@
             }
             currentRow++;
             currentCol = 0;
+            saveState();
             if (guess === secretCode) {
                 showWinAnimation();
-                markCompleted();
                 updateStreak(true);
                 gameOver = true;
+                saveState();
                 document.getElementById('shareContainer').style.display = 'block';
             } else if (currentRow >= GRID_ROWS) {
                 showLoseAnimation(`Game over! Secret was ${secretCode}`);
-                markCompleted();
                 updateStreak(false);
                 gameOver = true;
+                saveState();
                 document.getElementById('shareContainer').style.display = 'block';
             }
         }
 
-        function markCompleted() {
+        function saveState() {
+            if (!secretCode) return;
             const today = new Date().toDateString();
-            const completedKey = `completed_${currentMode}_${today}`;
-            localStorage.setItem(completedKey, 'true');
+            const stateKey = `state_${currentMode}_${today}`;
+            const gridState = [];
+            for (let r = 0; r < GRID_ROWS; r++) {
+                const row = [];
+                for (let c = 0; c < CODE_LENGTH; c++) {
+                    const cell = getCell(r, c);
+                    let color = null;
+                    if (cell.classList.contains('green')) color = 'green';
+                    else if (cell.classList.contains('yellow')) color = 'yellow';
+                    else if (cell.classList.contains('gray')) color = 'gray';
+                    row.push({text: cell.textContent, color});
+                }
+                gridState.push(row);
+            }
+            const state = {
+                grid: gridState,
+                currentRow,
+                currentCol,
+                secretCode,
+                constraint: document.getElementById('constraint').textContent,
+                message: document.getElementById('message').textContent,
+                gameOver
+            };
+            localStorage.setItem(stateKey, JSON.stringify(state));
         }
 
         function showWinAnimation() {
@@ -622,6 +676,7 @@
         }
 
         function changeMode(mode) {
+            saveState();
             currentMode = mode;
             localStorage.setItem('currentMode', mode);
             if (mode === 'easy') {
