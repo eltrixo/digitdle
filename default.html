@@ -15,6 +15,7 @@
             margin: 0; 
             padding: 20px; 
             transition: background-color 0.3s, color 0.3s;
+            padding-bottom: 300px; /* Space for keyboard on mobile */
         }
         body.dark {
             background-color: #121212;
@@ -463,16 +464,33 @@
 
         function initGame() {
             clearGrid();
+            if (currentMode === 'easy') {
+                CODE_LENGTH = 4;
+                GRID_ROWS = 7;
+            } else if (currentMode === 'normal') {
+                CODE_LENGTH = 5;
+                GRID_ROWS = 6;
+            } else if (currentMode === 'hard') {
+                CODE_LENGTH = 6;
+                GRID_ROWS = 5;
+            }
             const today = new Date().toDateString();
             const stateKey = `state_${currentMode}_${today}`;
-            const savedState = localStorage.getItem(stateKey);
+            let savedState = localStorage.getItem(stateKey);
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                if (state.codeLength !== CODE_LENGTH || state.gridRows !== GRID_ROWS) {
+                    localStorage.removeItem(stateKey);
+                    savedState = null;
+                }
+            }
             if (savedState) {
                 const state = JSON.parse(savedState);
                 secretCode = state.secretCode;
                 document.getElementById('constraint').textContent = state.constraint;
                 const grid = document.getElementById('grid');
-                grid.style.gridTemplateColumns = `repeat(${state.codeLength}, 50px)`;
-                grid.style.gridTemplateRows = `repeat(${state.gridRows}, 50px)`;
+                grid.style.gridTemplateColumns = `repeat(${CODE_LENGTH}, 50px)`;
+                grid.style.gridTemplateRows = `repeat(${GRID_ROWS}, 50px)`;
                 state.grid.forEach((row, r) => {
                     row.forEach((item, c) => {
                         const cell = document.createElement('div');
@@ -485,6 +503,7 @@
                             if (parseInt(this.dataset.row) === currentRow && !gameOver) {
                                 currentCol = parseInt(this.dataset.col);
                                 document.getElementById('hiddenInput').focus();
+                                window.scrollTo(0, document.getElementById('grid').getBoundingClientRect().top + window.scrollY - 100);
                             }
                         };
                         grid.appendChild(cell);
@@ -519,6 +538,7 @@
                         if (parseInt(this.dataset.row) === currentRow && !gameOver) {
                             currentCol = parseInt(this.dataset.col);
                             document.getElementById('hiddenInput').focus();
+                            window.scrollTo(0, document.getElementById('grid').getBoundingClientRect().top + window.scrollY - 100);
                         }
                     };
                     grid.appendChild(cell);
@@ -560,7 +580,7 @@
             if (gameOver) return;
             if (e.key >= '0' && e.key <= '9') {
                 if (currentCol < CODE_LENGTH) {
-                    getCell(currentRow, currentCol).textContent = e.key;
+                    getCell(currentRow, currentRow).textContent = e.key;
                     currentCol++;
                     if (currentCol === CODE_LENGTH) {
                         submitGuess();
@@ -588,22 +608,22 @@
                 cell.classList.add('flip');
                 setTimeout(() => {
                     cell.classList.add(feedback[i]);
+                    if (i === CODE_LENGTH - 1) {
+                        setTimeout(saveState, 100); // Ensure colors are applied before save
+                    }
                 }, 300); // Delay for flip animation
             }
             currentRow++;
             currentCol = 0;
-            saveState();
             if (guess === secretCode) {
                 showWinAnimation();
                 updateStreak(true);
                 gameOver = true;
-                saveState();
                 document.getElementById('shareContainer').style.display = 'block';
             } else if (currentRow >= GRID_ROWS) {
                 showLoseAnimation(`Game over! Secret was ${secretCode}`);
                 updateStreak(false);
                 gameOver = true;
-                saveState();
                 document.getElementById('shareContainer').style.display = 'block';
             }
         }
